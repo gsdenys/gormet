@@ -12,7 +12,7 @@ import (
 
 type JustTest struct {
 	gorm.Model
-	SomeField string `json:"somefield" gorm:"unique;not null" validate:"required,min=3,max=50"`
+	SomeField string `json:"somefield" gorm:"unique;not null;default:null" validate:"required,min=3,max=50"`
 }
 
 func TestNew(t *testing.T) {
@@ -42,35 +42,16 @@ func TestCreateRepository(t *testing.T) {
 	assert.False(t, repo.Config.Validate)
 }
 
-// func TestRepository_Create(t *testing.T) {
-// 	db, err := gorm.Open(sqlite.Open("./database.db"), &gorm.Config{})
-// 	assert.Nil(t, err)
-
-// 	db.AutoMigrate(&JustTest{})
-
-// 	repo := New[JustTest](db)
-
-// 	entity := &JustTest{
-// 		SomeField: uuid.NewString(),
-// 	}
-
-// 	err = repo.Create(entity)
-
-// 	assert.Nil(t, err)
-// 	assert.NotEqual(t, entity.ID, 0)
-// }
-
 func TestRepository_Create(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("./database.db"), &gorm.Config{})
 	assert.Nil(t, err)
 
 	db.AutoMigrate(&JustTest{})
 
-	repo := New[JustTest](db)
-
 	tests := []struct {
 		name    string
 		entity  *JustTest
+		repo    *Repository[JustTest]
 		wantErr string
 	}{
 		{
@@ -78,29 +59,37 @@ func TestRepository_Create(t *testing.T) {
 			entity: &JustTest{
 				SomeField: fmt.Sprintf("test-%s", uuid.NewString()),
 			},
+			repo: New[JustTest](db),
 		},
 		{
 			name:    "Empty JustTest Entity",
 			entity:  &JustTest{},
 			wantErr: "Key: 'JustTest.SomeField' Error:Field validation for 'SomeField' failed on the 'required' tag",
+			repo:    New[JustTest](db),
 		},
 		{
 			name:    "Nil Entity",
 			entity:  nil,
 			wantErr: "the entity cannot be nil",
+			repo:    New[JustTest](db),
+		},
+		{
+			name:    "Empty JustTest Entity without validation",
+			entity:  &JustTest{},
+			wantErr: "NOT NULL constraint failed: just_tests.some_field",
+			repo:    CreateRepository[JustTest](db, &Config{}),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Create(tt.entity)
+			err := tt.repo.Create(tt.entity)
 
 			if err == nil {
 				assert.NotEqual(t, tt.entity.ID, 0)
 			} else {
 				assert.Equal(t, err.Error(), tt.wantErr)
 			}
-
 		})
 	}
 }

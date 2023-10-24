@@ -93,3 +93,85 @@ func TestRepository_Create(t *testing.T) {
 		})
 	}
 }
+
+func TestRepository_GetById(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("./database.db"), &gorm.Config{})
+	assert.Nil(t, err)
+
+	db.AutoMigrate(&JustTest{})
+
+	repo := New[JustTest](db)
+
+	t.Run("Find New Entity", func(t *testing.T) {
+		justTest := &JustTest{
+			SomeField: uuid.NewString(),
+		}
+
+		if err := repo.Create(justTest); err != nil {
+			t.Errorf("Create element error")
+		}
+
+		got, err := repo.GetById(justTest.ID)
+
+		assert.Nil(t, err)
+		assert.NotNil(t, got)
+
+		assert.Equal(t, got.ID, justTest.ID)
+		assert.Equal(t, got.SomeField, justTest.SomeField)
+	})
+
+	t.Run("Element not found", func(t *testing.T) {
+		got, err := repo.GetById(999999)
+
+		assert.Nil(t, got)
+		assert.NotNil(t, err)
+		assert.Equal(t, err.Error(), "entity not found")
+	})
+
+	t.Run("Nil id", func(t *testing.T) {
+		got, err := repo.GetById(nil)
+
+		assert.Nil(t, got)
+		assert.NotNil(t, err)
+		assert.Equal(t, err.Error(), "the id cannot be nil")
+	})
+}
+
+func TestRepository_Get(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("./database.db"), &gorm.Config{})
+	assert.Nil(t, err)
+
+	db.AutoMigrate(&JustTest{})
+
+	repo := New[JustTest](db)
+
+	t.Run("Find new entity by field", func(t *testing.T) {
+		justTest := &JustTest{
+			SomeField: uuid.NewString(),
+		}
+
+		if err := repo.Create(justTest); err != nil {
+			t.Errorf("Create element error")
+		}
+
+		got, err := repo.Get(JustTest{SomeField: justTest.SomeField})
+
+		assert.Nil(t, err)
+		assert.NotNil(t, got)
+
+		assert.Equal(t, got.ID, justTest.ID)
+		assert.Equal(t, got.SomeField, justTest.SomeField)
+	})
+
+	t.Run("Find new entity by field with fail", func(t *testing.T) {
+		where := JustTest{
+			SomeField: "Isto é apenas um teste",
+		}
+
+		got, err := repo.Get(where)
+
+		assert.Nil(t, got)
+		assert.NotNil(t, err)
+		assert.Equal(t, err.Error(), "record not found")
+	})
+}

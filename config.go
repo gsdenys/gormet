@@ -5,11 +5,13 @@ package gormet
 type Config struct {
 	// Validate indicates whether entity validation is enabled or not.
 	Validate bool
+	Paginate bool
 }
 
 // DefaultConfig returns a pointer to a Config with default values.
 func DefaultConfig() *Config {
 	return &Config{
 		Validate: true, // Entity validation is enabled by default.
+		Paginate: true, // Entity paginated search is
 	}
 }

@@ -8,10 +8,10 @@ import (
 	"gorm.io/gorm"
 )
 
-// Repository represents a generic repository for GORM ORM.
+// Repository represents a generic Repository for GORM ORM.
 type Repository[T any] struct {
-	DB     *gorm.DB // DB represents the GORM database connection.
-	Config *Config  // Config holds the configuration settings for the repository.
+	db     *gorm.DB // db represents the GORM database connection.
+	config *Config  // config holds the configuration settings for the repository.
 }
 
 // CreateRepository creates a new repository with the given database connection and configuration.
@@ -21,8 +21,8 @@ func CreateRepository[T any](db *gorm.DB, conf *Config) *Repository[T] {
 	}
 
 	return &Repository[T]{
-		DB:     db,
-		Config: conf,
+		db:     db,
+		config: conf,
 	}
 }
 
@@ -34,18 +34,33 @@ func New[T any](db *gorm.DB) *Repository[T] {
 // Create inserts a new entity into the database using the repository.
 func (r *Repository[T]) Create(entity *T) error {
 	if entity == nil {
-		return errors.New("the entity cannot be nil")
+		return errors.New("The entity cannot be nil")
 	}
 
 	// Validate the entity if validation is enabled in the configuration.
-	if err := isValid[T](entity, r.Config.Validate); err != nil {
+	if err := isValid[T](entity, r.config.Validate); err != nil {
 		return err
 	}
 
 	// Create the entity in the database.
-	if result := r.DB.Create(entity); result.Error != nil {
+	if result := r.db.Create(entity); result.Error != nil {
 		return result.Error
 	}
+
+	return nil
+}
+
+// Create inserts a new entity into the database using the repository.
+func (r *Repository[T]) DeleteById(id interface{}) error {
+	if id == nil {
+		return errors.New("the id cannot be nil")
+	}
+
+	return r.db.Delete(new(T), id).Error
+}
+
+// Create inserts a new entity into the database using the repository.
+func (r *Repository[T]) Remove(entity *T) error {
 
 	return nil
 }
@@ -56,12 +71,12 @@ func (r *Repository[T]) Update(entity *T) error {
 	}
 
 	// Validate the entity if validation is enabled in the configuration.
-	if err := isValid[T](entity, r.Config.Validate); err != nil {
+	if err := isValid[T](entity, r.config.Validate); err != nil {
 		return err
 	}
 
 	// Update the entity in the database.
-	if result := r.DB.Save(entity); result.Error != nil {
+	if result := r.db.Save(entity); result.Error != nil {
 		return result.Error
 	}
 
@@ -75,7 +90,7 @@ func (r *Repository[T]) Get(entity T) (*T, error) {
 	resp := new(T)
 
 	// Query the database to find the first record that matches the provided filter (entity)
-	result := r.DB.Debug().Where(&entity).First(resp)
+	result := r.db.First(resp, entity)
 
 	// Check for errors during the database query
 	if result.Error != nil {
@@ -98,16 +113,11 @@ func (r *Repository[T]) GetById(id interface{}) (*T, error) {
 	entity := new(T)
 
 	// Query the database to find the first record that matches the provided id
-	result := r.DB.First(entity, id)
+	result := r.db.First(entity, id)
 
 	// Check for errors during the database query
 	if result.Error != nil {
 		return nil, result.Error
-	}
-
-	// If no records are found, return an error indicating that the entity was not found
-	if result.RowsAffected == 0 {
-		return nil, errors.New("entity not found")
 	}
 
 	// Return the retrieved entity and no errors

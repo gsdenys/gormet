@@ -9,7 +9,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	type JustTest struct {
+	type TestNew struct {
 		gorm.Model
 		SomeField string `json:"somefield" gorm:"unique;not null;default:null" validate:"required,min=3,max=50"`
 	}
@@ -17,26 +17,15 @@ func TestNew(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("./database.db"), &gorm.Config{})
 	assert.Nil(t, err)
 
-	db.AutoMigrate(&JustTest{})
+	db.AutoMigrate(&TestNew{})
 
 	t.Run("Default config", func(t *testing.T) {
-		repo, err := New[JustTest](db)
+		repo, err := New[TestNew](db)
 
 		assert.Nil(t, err)
 		assert.NotNil(t, repo)
 
 		assert.Equal(t, DefaultConfig(), repo.config)
-	})
-
-	t.Run("Custom config", func(t *testing.T) {
-		repo, err := New[JustTest](db)
-
-		assert.Nil(t, err)
-		assert.NotNil(t, repo)
-
-		repo.Validate(false)
-
-		assert.NotEqual(t, DefaultConfig(), repo.config)
 	})
 
 	t.Run("Struct with custom pk", func(t *testing.T) {
@@ -68,42 +57,49 @@ func TestNew(t *testing.T) {
 	})
 }
 
-func TestRepository_Paginate(t *testing.T) {
+func Test_getPrimaryKeyFieldName(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("./database.db"), &gorm.Config{})
 	assert.Nil(t, err)
 
-	t.Run("Set paginate false", func(t *testing.T) {
-		type SetPaginate struct {
+	t.Run("Default Primary Key", func(t *testing.T) {
+		type DefaultPK struct {
 			gorm.Model
-			Name string `json:"name" gorm:"autoIncrement:false"`
+			Name string `json:"name" gorm:"unique;not null;default:null"`
 		}
 
-		db.AutoMigrate(SetPaginate{})
-
-		repo, err := New[SetPaginate](db)
+		pk, err := getPrimaryKeyFieldName(db, DefaultPK{})
 		assert.Nil(t, err)
-
-		repo.Paginate(false)
-		assert.False(t, repo.config.Paginate)
+		assert.NotNil(t, pk)
+		assert.Equal(t, "id", pk)
 	})
-}
 
-func TestRepository_Validate(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("./database.db"), &gorm.Config{})
-	assert.Nil(t, err)
-
-	t.Run("Set Validate false", func(t *testing.T) {
-		type SetPaginate struct {
-			gorm.Model
-			Name string `json:"name" gorm:"autoIncrement:false"`
+	t.Run("Custom Primary Key", func(t *testing.T) {
+		type CustomPK struct {
+			Email string `json:"email" gorm:"primaryKey"`
+			Name  string `json:"name" gorm:"not null;default:null"`
 		}
 
-		db.AutoMigrate(SetPaginate{})
-
-		repo, err := New[SetPaginate](db)
+		pk, err := getPrimaryKeyFieldName(db, CustomPK{})
 		assert.Nil(t, err)
+		assert.NotNil(t, pk)
+		assert.Equal(t, "email", pk)
+	})
 
-		repo.Validate(false)
-		assert.False(t, repo.config.Validate)
+	t.Run("No Primary Key", func(t *testing.T) {
+		type NoPk struct {
+			Email string `json:"email" gorm:"unique;not null;default:null"`
+			Name  string `json:"name" gorm:"not null;default:null"`
+		}
+
+		pk, err := getPrimaryKeyFieldName(db, NoPk{})
+		assert.NotNil(t, err)
+		assert.Equal(t, "", pk)
+	})
+
+	t.Run("Invalid struct", func(t *testing.T) {
+
+		pk, err := getPrimaryKeyFieldName(db, "Just a parser error string")
+		assert.NotNil(t, err)
+		assert.Equal(t, "", pk)
 	})
 }

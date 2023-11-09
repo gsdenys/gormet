@@ -2,134 +2,66 @@
 package gormet
 
 import (
-	"errors"
+	"fmt"
 
-	"github.com/go-playground/validator/v10"
 	"gorm.io/gorm"
 )
 
-// Repository represents a generic Repository for GORM ORM.
+// Repository is a generic repository type that provides
+// CRUD operations for a given model that is represented by a GORM model.
 type Repository[T any] struct {
-	db     *gorm.DB // db represents the GORM database connection.
-	config *Config  // config holds the configuration settings for the repository.
+	db     *gorm.DB // The database connection handle.
+	config *Config  // Configuration settings for the repository.
+	pkName string   // The name of the primary key field in the database table.
 }
 
-// CreateRepository creates a new repository with the given database connection and configuration.
-func CreateRepository[T any](db *gorm.DB, conf *Config) *Repository[T] {
-	if conf == nil {
-		conf = DefaultConfig() // Set default configuration if not provided.
+// New creates and returns a new instance of Repository for a specific model type T,
+// with the provided database connection and optional configuration settings.
+// It automatically determines the primary key field for the model type T.
+//
+// Usage:
+// repo, err := New[YourModelType](db, nil)
+//
+//	if err != nil {
+//	    // Handle error
+//	}
+//
+// Parameters:
+//   - db: A *gorm.DB instance representing the database connection.
+//
+// Returns:
+// - A pointer to a newly created Repository for type T if successful.
+// - An error if there is a failure in determining the primary key or other initializations.
+func New[T any](db *gorm.DB) (*Repository[T], error) {
+	// Initialize a variable to hold the name of the primary key field.
+	var pkName string
+	var err error
+
+	// Retrieve the primary key field name using the getPrimaryKeyFieldName function.
+	// The new(T) creates a new instance of the model type T, which is required for reflection.
+	if pkName, err = getPrimaryKeyFieldName(db, new(T)); err != nil {
+		// If there's an error in retrieving the primary key, return nil and the error.
+		return nil, fmt.Errorf("impossible to retrieve primary key: %v", err)
 	}
 
-	return &Repository[T]{
+	// Create a new Repository instance for the model type T with the database connection,
+	// configuration, and primary key name.
+	repo := &Repository[T]{
 		db:     db,
-		config: conf,
+		config: DefaultConfig(),
+		pkName: pkName,
 	}
+
+	// Return the newly created repository and nil error (indicating success).
+	return repo, nil
 }
 
-// New creates and returns a new repository with the given database connection.
-func New[T any](db *gorm.DB) *Repository[T] {
-	return (*Repository[T])(CreateRepository[T](db, nil))
+func (r *Repository[T]) Paginate(paginate bool) *Repository[T] {
+	r.config.Paginate = paginate
+	return r
 }
 
-// Create inserts a new entity into the database using the repository.
-func (r *Repository[T]) Create(entity *T) error {
-	if entity == nil {
-		return errors.New("The entity cannot be nil")
-	}
-
-	// Validate the entity if validation is enabled in the configuration.
-	if err := isValid[T](entity, r.config.Validate); err != nil {
-		return err
-	}
-
-	// Create the entity in the database.
-	if result := r.db.Create(entity); result.Error != nil {
-		return result.Error
-	}
-
-	return nil
-}
-
-// Create inserts a new entity into the database using the repository.
-func (r *Repository[T]) DeleteById(id interface{}) error {
-	if id == nil {
-		return errors.New("the id cannot be nil")
-	}
-
-	return r.db.Delete(new(T), id).Error
-}
-
-// Create inserts a new entity into the database using the repository.
-func (r *Repository[T]) Remove(entity *T) error {
-
-	return nil
-}
-
-func (r *Repository[T]) Update(entity *T) error {
-	if entity == nil {
-		return errors.New("the entity cannot be nil")
-	}
-
-	// Validate the entity if validation is enabled in the configuration.
-	if err := isValid[T](entity, r.config.Validate); err != nil {
-		return err
-	}
-
-	// Update the entity in the database.
-	if result := r.db.Save(entity); result.Error != nil {
-		return result.Error
-	}
-
-	return nil
-}
-
-// Get retrieves a single entity from the database based on the provided filter criteria.
-// It takes a pointer to the repository, an entity object as a filter, and returns a pointer to the retrieved entity and an error, if any.
-func (r *Repository[T]) Get(entity T) (*T, error) {
-	// Create a new instance of the entity to store the retrieved data
-	resp := new(T)
-
-	// Query the database to find the first record that matches the provided filter (entity)
-	result := r.db.First(resp, entity)
-
-	// Check for errors during the database query
-	if result.Error != nil {
-		return nil, result.Error
-	}
-
-	// Return the retrieved entity and no errors
-	return resp, nil
-}
-
-// GetById retrieves a single entity from the database based on its unique identifier (id).
-// It takes a pointer to the repository and the id of the entity, and returns a pointer to the retrieved entity and an error, if any.
-func (r *Repository[T]) GetById(id interface{}) (*T, error) {
-	// Check if the provided id is nil
-	if id == nil {
-		return nil, errors.New("the id cannot be nil")
-	}
-
-	// Create a new instance of the entity to store the retrieved data
-	entity := new(T)
-
-	// Query the database to find the first record that matches the provided id
-	result := r.db.First(entity, id)
-
-	// Check for errors during the database query
-	if result.Error != nil {
-		return nil, result.Error
-	}
-
-	// Return the retrieved entity and no errors
-	return entity, nil
-}
-
-// isValid checks the validity of the entity based on the validation configuration.
-func isValid[T any](entity *T, validable bool) error {
-	if validable {
-		validate := validator.New()
-		return validate.Struct(entity)
-	}
-
-	return nil
+func (r *Repository[T]) Validate(validate bool) *Repository[T] {
+	r.config.Validate = validate
+	return r
 }

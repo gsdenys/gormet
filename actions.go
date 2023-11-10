@@ -6,15 +6,6 @@ import (
 )
 
 // Create inserts a new entity into the database using the repository.
-func (r *Repository[T]) DeleteById(id interface{}) error {
-	if id == nil {
-		return errors.New("the id should not be nil")
-	}
-
-	return r.db.Debug().Delete(new(T), fmt.Sprintf("%s = ?", r.pkName), id).Error
-}
-
-// Create inserts a new entity into the database using the repository.
 func (r *Repository[T]) Remove(entity *T) error {
 
 	return nil
@@ -50,7 +41,7 @@ func (r *Repository[T]) GetById(id interface{}) (*T, error) {
 	entity := new(T)
 
 	// Query the database to find the first record that matches the provided id
-	result := r.db.Debug().First(entity, fmt.Sprintf("%s = ?", r.pkName), id)
+	result := r.db.First(entity, fmt.Sprintf("%s = ?", r.pkName), id)
 
 	// Check for errors during the database query
 	if result.Error != nil {

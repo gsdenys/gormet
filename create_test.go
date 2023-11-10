@@ -27,7 +27,7 @@ func TestRepository_Create(t *testing.T) {
 	repo, err := New[testCreate](db)
 	assert.Nil(t, err)
 
-	t.Run("Create entity successfull", func(t *testing.T) {
+	t.Run("Creation Successfull", func(t *testing.T) {
 		field := uuid.NewString()
 		entity := &testCreate{
 			Name:  fmt.Sprintf("create-%v", field),
@@ -40,13 +40,13 @@ func TestRepository_Create(t *testing.T) {
 		assert.Greater(t, entity.ID, uint(0))
 	})
 
-	t.Run("Create nil entity error", func(t *testing.T) {
+	t.Run("Nil entity", func(t *testing.T) {
 		err := repo.Create(nil)
 		assert.NotNil(t, err)
 		assert.Equal(t, err.Error(), "the entity should not be nil")
 	})
 
-	t.Run("Create entity with sql injection", func(t *testing.T) {
+	t.Run("Entity with sql injection", func(t *testing.T) {
 		field := uuid.NewString()
 
 		//The intire string should be placed in tha field name
@@ -66,7 +66,7 @@ func TestRepository_Create(t *testing.T) {
 		assert.Equal(t, injection, got.Name)
 	})
 
-	t.Run("Create close connection error", func(t *testing.T) {
+	t.Run("Connection Closed", func(t *testing.T) {
 		sqlDB, _ := db.DB()
 		err := sqlDB.Close()
 		assert.Nil(t, err)

@@ -19,13 +19,23 @@ func TestNew(t *testing.T) {
 
 	db.AutoMigrate(&TestNew{})
 
-	t.Run("Default config", func(t *testing.T) {
+	t.Run("Pagination active", func(t *testing.T) {
 		repo, err := New[TestNew](db)
 
 		assert.Nil(t, err)
 		assert.NotNil(t, repo)
 
-		assert.Equal(t, DefaultConfig(), repo.config)
+		assert.True(t, repo.Paginate)
+	})
+
+	t.Run("Pagination Inactive", func(t *testing.T) {
+		repo, err := New[TestNew](db)
+		assert.Nil(t, err)
+		assert.NotNil(t, repo)
+
+		repo.Paginate = false
+
+		assert.False(t, repo.Paginate)
 	})
 
 	t.Run("Struct with custom pk", func(t *testing.T) {

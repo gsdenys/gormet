@@ -20,19 +20,6 @@ func (r *Repository[T]) Remove(entity *T) error {
 	return nil
 }
 
-func (r *Repository[T]) Update(entity *T) error {
-	if entity == nil {
-		return errors.New("the entity should not be nil")
-	}
-
-	// Update the entity in the database.
-	if result := r.db.Save(entity); result.Error != nil {
-		return result.Error
-	}
-
-	return nil
-}
-
 // Get retrieves a single entity from the database based on the provided filter criteria.
 // It takes a pointer to the repository, an entity object as a filter, and returns a pointer to the retrieved entity and an error, if any.
 func (r *Repository[T]) Get(entity T) (*T, error) {

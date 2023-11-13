@@ -174,7 +174,7 @@ func TestRepository_Delete(t *testing.T) {
 		err := sqlDB.Close()
 		assert.Nil(t, err)
 
-		err = repo.Delete(entity)
+		err = repo.DeleteById(entity)
 		assert.NotNil(t, err)
 		assert.Equal(t, err.Error(), "sql: database is closed")
 	})

@@ -34,7 +34,7 @@ func (r *Repository[T]) Get(entity T) (*T, error) {
 func (r *Repository[T]) GetById(id interface{}) (*T, error) {
 	// Check if the provided id is nil
 	if id == nil {
-		return nil, errors.New("the id cannot be nil")
+		return nil, errors.New("the id should not be nil")
 	}
 
 	// Create a new instance of the entity to store the retrieved data

@@ -14,33 +14,35 @@ type ExtendModel struct {
 	Name string `json:"name" gorm:"unique;not null;default:null"`
 }
 
-type CustomRepo[T any] struct {
+type CustomStructExtendedRepo[T any] struct {
 	Repository[T]
 }
 
-func (cr *CustomRepo[T]) teste() string {
-	return "test"
+func (cs *CustomStructExtendedRepo[T]) SayHello() string {
+	return "Hello Struct Extention"
 }
 
-func Test_Extends(t *testing.T) {
+func Test_Extended(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("./database.db"), &gorm.Config{})
 	assert.Nil(t, err)
 
 	db.AutoMigrate(&ExtendModel{})
 
-	bRepo, err := New[ExtendModel](db)
-	repo := CustomRepo[ExtendModel]{
-		*bRepo,
-	}
+	t.Run("Struct Extention", func(t *testing.T) {
+		r, _ := New[ExtendModel](db)
+		repo := &CustomStructExtendedRepo[ExtendModel]{
+			Repository: *r,
+		}
 
-	entity := &ExtendModel{
-		Name: uuid.NewString(),
-	}
+		entity := &ExtendModel{
+			Name: uuid.NewString(),
+		}
 
-	err = repo.Create(entity)
-	assert.Nil(t, err)
-	assert.NotZero(t, entity.ID)
+		err := repo.Create(entity)
 
-	tst := repo.teste()
-	assert.Equal(t, "test", tst)
+		assert.Nil(t, err)
+		assert.NotZero(t, entity.ID)
+
+		assert.Equal(t, "Hello Struct Extention", repo.SayHello())
+	})
 }

@@ -63,6 +63,20 @@ func TestRepository_Search(t *testing.T) {
 
 		assert.Equal(t, len(createdElements), int(resp.Response.TotalCount))
 		assert.Equal(t, len(createdElements)/10, int(resp.Response.TotalPages))
+		assert.Equal(t, 0, resp.Response.Page)
+	})
+
+	t.Run("Request Error", func(t *testing.T) {
+		group := uuid.NewString()
+		// createdElements := createMany(100, group)
+
+		repo.PageSize = 10
+		assert.Equal(t, uint(10), repo.PageSize)
+
+		resp, err := repo.Search(0, "x = ?", group)
+
+		assert.NotNil(t, err)
+		assert.Empty(t, resp.Response.Entities)
 	})
 
 }

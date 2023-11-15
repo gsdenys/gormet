@@ -11,7 +11,7 @@ import (
 // CRUD operations for a given model that is represented by a GORM model.
 type Repository[T any] struct {
 	db       *gorm.DB // The database connection handle.
-	Paginate bool     // Define if the pagination is enable or not for the repository
+	PageSize uint     // Define if the size of page
 	pkName   string   // The name of the primary key field in the database table.
 }
 
@@ -52,9 +52,8 @@ func New[T any](db *gorm.DB) (*Repository[T], error) {
 	// Create a new Repository instance for the model type T with the database connection,
 	// configuration, and primary key name.
 	repo := &Repository[T]{
-		db:       db,
-		Paginate: true,
-		pkName:   pkName,
+		db:     db,
+		pkName: pkName,
 	}
 
 	// Return the newly created repository and nil error (indicating success).

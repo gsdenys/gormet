@@ -25,7 +25,9 @@ func TestNew(t *testing.T) {
 		assert.Nil(t, err)
 		assert.NotNil(t, repo)
 
-		assert.True(t, repo.Paginate)
+		repo.PageSize = 10
+
+		assert.Equal(t, uint(10), repo.PageSize)
 	})
 
 	t.Run("Pagination Inactive", func(t *testing.T) {
@@ -33,9 +35,9 @@ func TestNew(t *testing.T) {
 		assert.Nil(t, err)
 		assert.NotNil(t, repo)
 
-		repo.Paginate = false
+		repo.PageSize = 0
 
-		assert.False(t, repo.Paginate)
+		assert.Equal(t, uint(0), repo.PageSize)
 	})
 
 	t.Run("Struct with custom pk", func(t *testing.T) {

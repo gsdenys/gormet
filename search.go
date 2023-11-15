@@ -7,45 +7,16 @@ type Pagination[T any] struct {
 	repository *Repository[T] `json:"-"`
 }
 
-// func (p Pagination[T]) MarshalJSON() ([]byte, error) {
-// 	if p.repository.PageSize == 0 {
-// 		// If PageSize is not specified, marshal only the Entities and TotalCount from Response[T].
-// 		return json.Marshal(struct {
-// 			Entities   []T  `json:"entities"`
-// 			TotalCount uint `json:"totalCount"`
-// 		}{
-// 			Entities:   p.Response.Entities,
-// 			TotalCount: p.Response.TotalCount,
-// 		})
-// 	}
-
-// 	return json.Marshal(p.Response)
-// }
-
-// PaginatedResponse represents the paginated search results including entities, total count, and pagination details.
+// Response represents the paginated search results including entities, total count, and pagination details.
 type Response[T any] struct {
 	Entities    []T   `json:"entities"`
 	TotalCount  int64 `json:"totalCount"`
-	Page        int   `json:"page"`
-	PageSize    int   `json:"pageSize"`
+	Page        uint  `json:"page"`
+	PageSize    uint  `json:"pageSize"`
 	TotalPages  int64 `json:"totalPages"`
 	HasNextPage bool  `json:"hasNextPage"`
 	HasPrevPage bool  `json:"hasPrevPage"`
 }
-
-// func (r Response[T]) MarshalJSON() ([]byte, error) {
-// 	if r.PageSize == 0 {
-// 		return json.Marshal(struct {
-// 			Entities   []T  `json:"entities"`
-// 			TotalCount uint `json:"totalCount"`
-// 		}{
-// 			Entities:   r.Entities,
-// 			TotalCount: r.TotalCount,
-// 		})
-// 	}
-
-// 	return json.Marshal(r)
-// }
 
 // Search performs a paginated search for entities in the database based on given criteria.
 //
@@ -72,44 +43,54 @@ type Response[T any] struct {
 // Returns:
 // - A structure containing the paginated search results, including entities, total count, and pagination details.
 // - An error if the search operation encounters any issues.
-func (r *Repository[T]) Search(page int, query interface{}, args ...interface{}) (Pagination[T], error) {
-	var offset int = int(r.PageSize) * (page - 1)
-	var limit int = int(r.PageSize)
+func (r *Repository[T]) Search(page uint, query interface{}, args ...interface{}) (Pagination[T], error) {
+	var offset int = getOffset(page, r.PageSize)
+	var limit int = getLimit(r.PageSize)
 
-	// Perform the paginated search using GORM's Find method.
-	// Debug mode is enabled for more detailed logs during development.
-	entities := make([]T, 0)
-	searchResult := r.db.Debug().Where(query, args...).Offset(offset).Limit(limit).Find(&entities)
+	var entities []T
+	var count int64
+	var err error
 
-	// Check if the Find operation encountered an error.
-	if searchResult.Error != nil {
-		// Return the encountered error.
-		return Pagination[T]{}, searchResult.Error
+	if entities, err = r.executeSearch(offset, limit, query, args...); err != nil {
+		return Pagination[T]{}, err
 	}
 
-	// Get the total count for the entire search without pagination.
-	var totalCount int64
-	r.db.Model(new(T)).Where(query, args...).Count(&totalCount)
-
-	// Create a PaginatedResponse for the initial response.
-	response := Response[T]{
-		Entities:    entities,
-		TotalCount:  totalCount,
-		Page:        page,
-		PageSize:    int(r.PageSize),
-		TotalPages:  (totalCount + int64(limit-1)) / int64(r.PageSize),
-		HasNextPage: int64(page*limit) < totalCount,
-		HasPrevPage: page > 1,
+	if count, err = r.countRows(query, args...); err != nil {
+		return Pagination[T]{}, err
 	}
 
 	// Create a Pagination with the initial response, criteria, and repository.
 	pagination := Pagination[T]{
-		Response:   response,
+		Response: Response[T]{
+			Entities:    entities,
+			TotalCount:  count,
+			Page:        page,
+			PageSize:    r.PageSize,
+			TotalPages:  countTotalPages(count, limit, r.PageSize),
+			HasNextPage: getHasNextPage(page, limit, count),
+			HasPrevPage: getHasPreviousPage(page),
+		},
 		criteria:   query,
 		repository: r,
 	}
 
 	return pagination, nil
+}
+
+// executeSearch performs the paginated search using GORM's Find method.
+func (r *Repository[T]) executeSearch(offset int, limit int, query interface{}, args ...interface{}) ([]T, error) {
+	entities := make([]T, 0)
+	searchResult := r.db.Debug().Where(query, args...).Offset(offset).Limit(limit).Find(&entities)
+
+	return entities, searchResult.Error
+}
+
+// countRows gets the total count for the entire search without pagination.
+func (r *Repository[T]) countRows(query interface{}, args ...interface{}) (int64, error) {
+	var totalCount int64
+	result := r.db.Model(new(T)).Where(query, args...).Count(&totalCount)
+
+	return totalCount, result.Error
 }
 
 // SearchAll performs a paginated search for all entities in the database based on given criteria.
@@ -136,6 +117,46 @@ func (r *Repository[T]) Search(page int, query interface{}, args ...interface{})
 // Returns:
 // - A structure containing the paginated search results, including entities, total count, and pagination details.
 // - An error if the search operation encounters any issues.
-func (r *Repository[T]) SearchAll(query interface{}, args ...interface{}) (Pagination[T], error) {
-	return r.Search(0, query, args...)
+func (r *Repository[T]) SearchAll(query interface{}, args ...interface{}) ([]T, error) {
+	var entities []T
+	var err error
+
+	if entities, err = r.executeSearch(-1, -1, query, args...); err != nil {
+		return []T{}, err
+	}
+
+	return entities, nil
+}
+
+// getOffset calculates the offset based on the page number and page size.
+func getOffset(page uint, pageSize uint) int {
+	if page == 0 {
+		return -1
+	}
+
+	return int(pageSize * (page - 1))
+}
+
+// getLimit calculates the limit based on the page size.
+func getLimit(pageSize uint) int {
+	if pageSize == 0 {
+		return -1
+	}
+
+	return int(pageSize)
+}
+
+// countTotalPages calculates the total number of pages based on total count, limit, and page size.
+func countTotalPages(totalCount int64, limit int, pageSize uint) int64 {
+	return (totalCount + int64(limit-1)) / int64(pageSize)
+}
+
+// getHasNextPage checks if there is a next page based on the current page, limit, and total count.
+func getHasNextPage(page uint, limit int, totalCount int64) bool {
+	return int64(int(page)*limit) < totalCount
+}
+
+// getHasPreviousPage checks if there is a previous page based on the current page.
+func getHasPreviousPage(page uint) bool {
+	return page > 1
 }

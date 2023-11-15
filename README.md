@@ -19,7 +19,6 @@ This project is logically structured, containing as the center of everything the
 Abaixo está impresso um diagrama de mapa mental que descreve o grupo descrito acima e identifica cada uma de suas funções.
 
 ```mermaid
-%%{init: {'theme':'neutral'}}%%
 mindmap
   root)Repository(
     (Get Functions)

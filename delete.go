@@ -74,7 +74,7 @@ func (r *Repository[T]) Delete(entity *T) error {
 
 	// Use GORM's Delete method to remove the record from the database.
 	// Debug mode is enabled for more detailed logs during development.
-	deleteResult := r.db.Debug().Delete(entity)
+	deleteResult := r.db.Delete(entity)
 
 	// Check if the Delete operation encountered an error.
 	if deleteResult.Error != nil {

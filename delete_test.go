@@ -6,44 +6,32 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
+type testDelete struct {
+	gorm.Model
+	Email string `json:"email" gorm:"unique,not null;default:null"`
+	Name  string `json:"name" gorm:"unique;not null;default:null"`
+}
+
 func TestRepository_DeleteById(t *testing.T) {
-
-	type testDelete struct {
-		gorm.Model
-		Email string `json:"email" gorm:"unique,not null;default:null"`
-		Name  string `json:"name" gorm:"unique;not null;default:null"`
-	}
-
-	db, err := gorm.Open(sqlite.Open("database.db"), &gorm.Config{})
-	assert.Nil(t, err)
-	assert.NotNil(t, db)
-
-	db.AutoMigrate(&testDelete{})
+	db := getGormConnection(t, &testDelete{})
 
 	repo, err := New[testDelete](db)
 	assert.Nil(t, err)
 
-	createRegister := func() *testDelete {
-		var field = uuid.NewString()
+	t.Run("Delete entity successfully", func(t *testing.T) {
 		entity := &testDelete{
-			Name:  fmt.Sprintf("%v", field),
-			Email: fmt.Sprintf("%v@mail.com", field),
+			Name:  uuid.NewString(),
+			Email: fmt.Sprintf("%s@mail.com", uuid.NewString()),
 		}
+		err := repo.Create(entity)
+		assert.Nil(t, err)
 
-		repo.Create(entity)
-
-		return entity
-	}
-
-	t.Run("Updated Successfull", func(t *testing.T) {
-		entity := createRegister()
 		id := entity.ID
 
-		err := repo.DeleteById(id)
+		err = repo.DeleteById(id)
 		assert.Nil(t, err)
 
 		var got *testDelete = &testDelete{}
@@ -55,7 +43,7 @@ func TestRepository_DeleteById(t *testing.T) {
 		assert.Equal(t, uint(0), got.ID)
 	})
 
-	t.Run("Nil entity", func(t *testing.T) {
+	t.Run("Error send nil entity", func(t *testing.T) {
 		err := repo.DeleteById(nil)
 
 		assert.NotNil(t, err)
@@ -63,9 +51,14 @@ func TestRepository_DeleteById(t *testing.T) {
 	})
 
 	t.Run("Entity with sql injection", func(t *testing.T) {
-		entity := createRegister()
+		entity := &testDelete{
+			Name:  uuid.NewString(),
+			Email: fmt.Sprintf("%s@mail.com", uuid.NewString()),
+		}
+		err := repo.Create(entity)
+		assert.Nil(t, err)
 
-		id := fmt.Sprintf(`%d"; update test_deletes set deleted at '1970-01-01 00:00:00 --`, entity.ID)
+		id := fmt.Sprintf("%d", entity.ID) + `"; update test_deletes set deleted_at '1970-01-01 00:00:00 --`
 
 		err = repo.DeleteById(id)
 		assert.NotNil(t, err)
@@ -73,52 +66,33 @@ func TestRepository_DeleteById(t *testing.T) {
 	})
 
 	t.Run("Connection Closed", func(t *testing.T) {
-		entity := createRegister()
-
 		sqlDB, _ := db.DB()
 		err := sqlDB.Close()
 		assert.Nil(t, err)
 
-		err = repo.DeleteById(entity.ID)
+		err = repo.DeleteById(1)
 		assert.NotNil(t, err)
 		assert.Equal(t, err.Error(), "sql: database is closed")
 	})
 }
 
 func TestRepository_Delete(t *testing.T) {
-
-	type testDelete struct {
-		gorm.Model
-		Email string `json:"email" gorm:"unique,not null;default:null"`
-		Name  string `json:"name" gorm:"unique;not null;default:null"`
-	}
-
-	db, err := gorm.Open(sqlite.Open("database.db"), &gorm.Config{})
-	assert.Nil(t, err)
-	assert.NotNil(t, db)
-
-	db.AutoMigrate(&testDelete{})
+	db := getGormConnection(t, &testDelete{})
 
 	repo, err := New[testDelete](db)
 	assert.Nil(t, err)
 
-	createRegister := func() *testDelete {
-		var field = uuid.NewString()
+	t.Run("Delete entity successfully", func(t *testing.T) {
 		entity := &testDelete{
-			Name:  fmt.Sprintf("%v", field),
-			Email: fmt.Sprintf("%v@mail.com", field),
+			Name:  uuid.NewString(),
+			Email: fmt.Sprintf("%s@mail.com", uuid.NewString()),
 		}
+		err := repo.Create(entity)
+		assert.Nil(t, err)
 
-		repo.Create(entity)
-
-		return entity
-	}
-
-	t.Run("Updated Successfull", func(t *testing.T) {
-		entity := createRegister()
 		id := entity.ID
 
-		err := repo.Delete(entity)
+		err = repo.Delete(entity)
 		assert.Nil(t, err)
 
 		var got *testDelete = &testDelete{}
@@ -130,7 +104,7 @@ func TestRepository_Delete(t *testing.T) {
 		assert.Equal(t, uint(0), got.ID)
 	})
 
-	t.Run("Nil entity", func(t *testing.T) {
+	t.Run("Error send nil entity", func(t *testing.T) {
 		err := repo.Delete(nil)
 
 		assert.NotNil(t, err)
@@ -138,9 +112,14 @@ func TestRepository_Delete(t *testing.T) {
 	})
 
 	t.Run("Entity with sql injection", func(t *testing.T) {
-		entity := createRegister()
+		entity := &testDelete{
+			Name:  fmt.Sprintf("sql-%s", uuid.NewString()),
+			Email: fmt.Sprintf("%s@sql.com", uuid.NewString()),
+		}
+		err := repo.Create(entity)
+		assert.Nil(t, err)
 
-		name := fmt.Sprintf(`%s"; update test_deletes set deleted at '1970-01-01 00:00:00 --`, entity.Name)
+		name := entity.Name + `"; update test_deletes set deleted at '1970-01-01 00:00:00 --`
 		entity.Name = name
 
 		err = repo.Delete(entity)
@@ -159,7 +138,7 @@ func TestRepository_Delete(t *testing.T) {
 		assert.Nil(t, err)
 
 		entity := &testDeletePkString{}
-		name := fmt.Sprintf(`%s"; update test_deletes set deleted at '1970-01-01 00:00:00 --`, uuid.NewString())
+		name := uuid.NewString() + `"; update test_deletes set deleted at '1970-01-01 00:00:00 --`
 		entity.Email = name
 
 		err = repo.Delete(entity)
@@ -167,14 +146,23 @@ func TestRepository_Delete(t *testing.T) {
 		assert.Equal(t, "no register found", err.Error())
 	})
 
-	t.Run("Connection Closed", func(t *testing.T) {
-		entity := createRegister()
+	t.Run("Error delete without where", func(t *testing.T) {
+		repo, err := New[testDelete](db)
+		assert.Nil(t, err)
 
+		entity := &testDelete{}
+
+		err = repo.Delete(entity)
+		assert.NotNil(t, err)
+		assert.Equal(t, "WHERE conditions required", err.Error())
+	})
+
+	t.Run("Connection Closed", func(t *testing.T) {
 		sqlDB, _ := db.DB()
 		err := sqlDB.Close()
 		assert.Nil(t, err)
 
-		err = repo.DeleteById(entity)
+		err = repo.DeleteById(2)
 		assert.NotNil(t, err)
 		assert.Equal(t, err.Error(), "sql: database is closed")
 	})

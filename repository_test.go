@@ -8,19 +8,26 @@ import (
 	"gorm.io/gorm"
 )
 
-func TestNew(t *testing.T) {
-	type TestNew struct {
-		gorm.Model
-		SomeField string `json:"somefield" gorm:"unique;not null;default:null" validate:"required,min=3,max=50"`
-	}
-
+func getGormConnection(t *testing.T, entity interface{}) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open("./database.db"), &gorm.Config{})
 	assert.Nil(t, err)
 
-	db.AutoMigrate(&TestNew{})
+	db.AutoMigrate(entity)
+
+	return db
+}
+
+type testNew struct {
+	gorm.Model
+	SomeField string `json:"somefield" gorm:"unique;not null;default:null" validate:"required,min=3,max=50"`
+}
+
+func TestNew(t *testing.T) {
+
+	db := getGormConnection(t, &testNew{})
 
 	t.Run("Pagination active", func(t *testing.T) {
-		repo, err := New[TestNew](db)
+		repo, err := New[testNew](db)
 
 		assert.Nil(t, err)
 		assert.NotNil(t, repo)
@@ -31,7 +38,7 @@ func TestNew(t *testing.T) {
 	})
 
 	t.Run("Pagination Inactive", func(t *testing.T) {
-		repo, err := New[TestNew](db)
+		repo, err := New[testNew](db)
 		assert.Nil(t, err)
 		assert.NotNil(t, repo)
 

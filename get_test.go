@@ -6,41 +6,38 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
-func TestRepository_GetById(t *testing.T) {
+// testGet data structure to be used in test case
+type testGet struct {
+	gorm.Model
+	Email string `json:"email" gorm:"unique,not null;default:null"`
+	Name  string `json:"name" gorm:"unique;not null;default:null"`
+}
 
-	type testGet struct {
-		gorm.Model
-		Email string `json:"email" gorm:"unique,not null;default:null"`
-		Name  string `json:"name" gorm:"unique;not null;default:null"`
+// createTestGetRegister auxiliar function to help create entity to test case
+func createTestGetRegister(repo *Repository[testGet]) *testGet {
+	var field = uuid.NewString()
+	entity := &testGet{
+		Name:  fmt.Sprintf("%v", field),
+		Email: fmt.Sprintf("%v@mail.com", field),
 	}
 
-	db, err := gorm.Open(sqlite.Open("database.db"), &gorm.Config{})
-	assert.Nil(t, err)
-	assert.NotNil(t, db)
+	repo.Create(entity)
 
-	db.AutoMigrate(&testGet{})
+	return entity
+}
+
+func TestRepository_GetById(t *testing.T) {
+
+	db := getGormConnection(t, &testGet{})
 
 	repo, err := New[testGet](db)
 	assert.Nil(t, err)
 
-	createRegister := func() *testGet {
-		var field = uuid.NewString()
-		entity := &testGet{
-			Name:  fmt.Sprintf("%v", field),
-			Email: fmt.Sprintf("%v@mail.com", field),
-		}
-
-		repo.Create(entity)
-
-		return entity
-	}
-
-	t.Run("Get Successfull", func(t *testing.T) {
-		entity := createRegister()
+	t.Run("Get one register successfully", func(t *testing.T) {
+		entity := createTestGetRegister(repo)
 		id := entity.ID
 
 		got, err := repo.GetById(id)
@@ -50,7 +47,7 @@ func TestRepository_GetById(t *testing.T) {
 		assert.Equal(t, id, got.ID)
 	})
 
-	t.Run("Nil entity", func(t *testing.T) {
+	t.Run("Error pass a nil id", func(t *testing.T) {
 		got, err := repo.GetById(nil)
 
 		assert.Nil(t, got)
@@ -58,10 +55,10 @@ func TestRepository_GetById(t *testing.T) {
 		assert.Equal(t, "the id should not be nil", err.Error())
 	})
 
-	t.Run("Entity with sql injection", func(t *testing.T) {
-		entity := createRegister()
+	t.Run("Error id with sql injection", func(t *testing.T) {
+		entity := createTestGetRegister(repo)
 
-		id := fmt.Sprintf(`%d"; update test_deletes set deleted at '1970-01-01 00:00:00 --`, entity.ID)
+		id := fmt.Sprintf("%d", entity.ID) + `"; update test_gets set deleted at '1970-01-01 00:00:00 --`
 
 		got, err := repo.GetById(id)
 
@@ -70,8 +67,8 @@ func TestRepository_GetById(t *testing.T) {
 		assert.Equal(t, "record not found", err.Error())
 	})
 
-	t.Run("Connection Closed", func(t *testing.T) {
-		entity := createRegister()
+	t.Run("Error connection closed", func(t *testing.T) {
+		entity := createTestGetRegister(repo)
 
 		sqlDB, _ := db.DB()
 		err := sqlDB.Close()
@@ -87,73 +84,95 @@ func TestRepository_GetById(t *testing.T) {
 
 func TestRepository_Get(t *testing.T) {
 
-	type testGet struct {
-		gorm.Model
-		Email string `json:"email" gorm:"unique,not null;default:null"`
-		Name  string `json:"name" gorm:"unique;not null;default:null"`
-	}
-
-	db, err := gorm.Open(sqlite.Open("database.db"), &gorm.Config{})
-	assert.Nil(t, err)
-	assert.NotNil(t, db)
-
-	db.AutoMigrate(&testGet{})
+	db := getGormConnection(t, &testGet{})
 
 	repo, err := New[testGet](db)
 	assert.Nil(t, err)
 
-	createRegister := func() *testGet {
-		var field = uuid.NewString()
-		entity := &testGet{
-			Name:  fmt.Sprintf("%v", field),
-			Email: fmt.Sprintf("%v@mail.com", field),
-		}
-
-		repo.Create(entity)
-
-		return entity
-	}
-
-	t.Run("Get Successfull", func(t *testing.T) {
-		entity := createRegister()
+	t.Run("Get one register successfully", func(t *testing.T) {
+		entity := createTestGetRegister(repo)
 		id := entity.ID
 
-		got, err := repo.Get(*entity)
+		got, err := repo.Get(testGet{
+			Name:  entity.Name,
+			Email: entity.Email,
+		})
 
 		assert.NotNil(t, got)
 		assert.Nil(t, err)
 		assert.Equal(t, id, got.ID)
 	})
 
-	t.Run("Nil entity", func(t *testing.T) {
-		got, err := repo.GetById(nil)
-
-		assert.Nil(t, got)
-		assert.NotNil(t, err)
-		assert.Equal(t, "the id should not be nil", err.Error())
-	})
-
 	t.Run("Entity with sql injection", func(t *testing.T) {
-		entity := createRegister()
+		entity := createTestGetRegister(repo)
 
-		name := fmt.Sprintf(`%d"; update test_deletes set deleted at '1970-01-01 00:00:00 --`, entity.ID)
+		name := fmt.Sprintf("%d", entity.ID) + `"; update test_gets set deleted at '1970-01-01 00:00:00 --`
 		entity.Name = name
 
-		got, err := repo.Get(*entity)
+		got, err := repo.Get(testGet{Name: name})
 
 		assert.Nil(t, got)
 		assert.NotNil(t, err)
 		assert.Equal(t, "record not found", err.Error())
 	})
 
-	t.Run("Connection Closed", func(t *testing.T) {
-		entity := createRegister()
+	t.Run("Error connection closed", func(t *testing.T) {
+		entity := createTestGetRegister(repo)
 
 		sqlDB, _ := db.DB()
 		err := sqlDB.Close()
 		assert.Nil(t, err)
 
 		got, err := repo.Get(*entity)
+
+		assert.Nil(t, got)
+		assert.NotNil(t, err)
+		assert.Equal(t, err.Error(), "sql: database is closed")
+	})
+}
+
+func TestRepository_GetLatest(t *testing.T) {
+
+	db := getGormConnection(t, &testGet{})
+
+	repo, err := New[testGet](db)
+	assert.Nil(t, err)
+
+	t.Run("Get the latest register successfully", func(t *testing.T) {
+		// Create multiple test entities with different timestamps
+		createTestGetRegister(repo)
+		createTestGetRegister(repo)
+		entity3 := createTestGetRegister(repo)
+
+		// Retrieve the latest entity
+		got, err := repo.GetLatest()
+		assert.NotNil(t, got)
+		assert.Nil(t, err)
+
+		// Ensure the retrieved entity is the one with the latest timestamp
+		assert.Equal(t, entity3.ID, got.ID)
+	})
+
+	t.Run("Error empty table", func(t *testing.T) {
+		// Remove all elements from the table
+		err := repo.db.Where("id > ?", 0).Delete(&testGet{}).Error
+		assert.Nil(t, err)
+
+		// Attempt to retrieve the latest entity
+		got, err := repo.GetLatest()
+
+		// Assert that the retrieved entity is nil and there are no errors
+		assert.Nil(t, got)
+		assert.NotNil(t, err)
+		assert.Equal(t, "record not found", err.Error())
+	})
+
+	t.Run("Error connection closed", func(t *testing.T) {
+		sqlDB, _ := db.DB()
+		err := sqlDB.Close()
+		assert.Nil(t, err)
+
+		got, err := repo.GetLatest()
 
 		assert.Nil(t, got)
 		assert.NotNil(t, err)

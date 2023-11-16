@@ -130,3 +130,52 @@ func TestRepository_Get(t *testing.T) {
 		assert.Equal(t, err.Error(), "sql: database is closed")
 	})
 }
+
+func TestRepository_GetLatest(t *testing.T) {
+
+	db := getGormConnection(t, &testGet{})
+
+	repo, err := New[testGet](db)
+	assert.Nil(t, err)
+
+	t.Run("Get the latest register successfully", func(t *testing.T) {
+		// Create multiple test entities with different timestamps
+		createTestGetRegister(repo)
+		createTestGetRegister(repo)
+		entity3 := createTestGetRegister(repo)
+
+		// Retrieve the latest entity
+		got, err := repo.GetLatest()
+		assert.NotNil(t, got)
+		assert.Nil(t, err)
+
+		// Ensure the retrieved entity is the one with the latest timestamp
+		assert.Equal(t, entity3.ID, got.ID)
+	})
+
+	t.Run("Error empty table", func(t *testing.T) {
+		// Remove all elements from the table
+		err := repo.db.Where("id > ?", 0).Delete(&testGet{}).Error
+		assert.Nil(t, err)
+
+		// Attempt to retrieve the latest entity
+		got, err := repo.GetLatest()
+
+		// Assert that the retrieved entity is nil and there are no errors
+		assert.Nil(t, got)
+		assert.NotNil(t, err)
+		assert.Equal(t, "record not found", err.Error())
+	})
+
+	t.Run("Error connection closed", func(t *testing.T) {
+		sqlDB, _ := db.DB()
+		err := sqlDB.Close()
+		assert.Nil(t, err)
+
+		got, err := repo.GetLatest()
+
+		assert.Nil(t, got)
+		assert.NotNil(t, err)
+		assert.Equal(t, err.Error(), "sql: database is closed")
+	})
+}

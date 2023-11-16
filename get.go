@@ -31,18 +31,14 @@ import (
 // - A pointer to the retrieved entity.
 // - An error if the retrieval operation encounters any issues.
 func (r *Repository[T]) Get(entity T) (*T, error) {
-	// Create a new instance of the entity to store the retrieved data
 	retrievedEntity := new(T)
 
-	// Query the database to find the first record that matches the provided filter (entity)
 	result := r.db.First(retrievedEntity, entity)
 
-	// Check for errors during the database query
 	if result.Error != nil {
 		return nil, result.Error
 	}
 
-	// Return the retrieved entity and no errors
 	return retrievedEntity, nil
 }
 
@@ -72,22 +68,47 @@ func (r *Repository[T]) Get(entity T) (*T, error) {
 // - A pointer to the retrieved entity.
 // - An error if the retrieval operation encounters any issues, including if the provided id is nil.
 func (r *Repository[T]) GetById(id interface{}) (*T, error) {
-	// Check if the provided id is nil
 	if id == nil {
 		return nil, errors.New("the id should not be nil")
 	}
 
-	// Create a new instance of the entity to store the retrieved data
 	retrievedEntity := new(T)
-
-	// Query the database to find the first record that matches the provided id
 	result := r.db.First(retrievedEntity, fmt.Sprintf("%s = ?", r.pkName), id)
 
-	// Check for errors during the database query
 	if result.Error != nil {
 		return nil, result.Error
 	}
 
-	// Return the retrieved entity and no errors
+	return retrievedEntity, nil
+}
+
+// GetLatest retrieves the latest entity from the database without any filter criteria.
+// It takes a pointer to the repository and returns a pointer to the retrieved entity and an error, if any.
+//
+// Example:
+//
+//	userRepo, err := NewUserRepository(db)
+//	if err != nil {
+//		// Handle error
+//	}
+//
+//	// Retrieve the latest user entity from the database
+//	latestUser, err := userRepo.GetLatest()
+//	if err != nil {
+//		// Handle error
+//	}
+//
+// Returns:
+// - A pointer to the retrieved entity.
+// - An error if the retrieval operation encounters any issues.
+func (r *Repository[T]) GetLatest() (*T, error) {
+	retrievedEntity := new(T)
+
+	result := r.db.Order(fmt.Sprintf("%s DESC", r.pkName)).First(retrievedEntity)
+
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
 	return retrievedEntity, nil
 }

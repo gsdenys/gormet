@@ -66,19 +66,13 @@ func (r *Repository[T]) DeleteById(id interface{}) error {
 // - nil if the entity is successfully deleted from the database.
 // - An error if the entity is nil or if GORM encounters any issues while deleting the record.
 func (r *Repository[T]) Delete(entity *T) error {
-	// Validate that the entity is not nil to prevent potential issues.
 	if entity == nil {
-		// Return an error indicating that the entity must not be nil.
 		return errors.New("the entity should not be nil")
 	}
 
-	// Use GORM's Delete method to remove the record from the database.
-	// Debug mode is enabled for more detailed logs during development.
 	deleteResult := r.db.Delete(entity)
 
-	// Check if the Delete operation encountered an error.
 	if deleteResult.Error != nil {
-		// Return the encountered error.
 		return deleteResult.Error
 	}
 
@@ -86,6 +80,5 @@ func (r *Repository[T]) Delete(entity *T) error {
 		return fmt.Errorf("no register found")
 	}
 
-	// Return nil, indicating successful deletion.
 	return nil
 }

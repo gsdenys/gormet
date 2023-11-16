@@ -1,4 +1,55 @@
-// Package gormet provides generic repository functionality for GORM ORM with validation support.
+// Package gormet provides a set of utility functions for performing common database operations using GORM.
+//
+// Usage:
+// To use this package, create a GORM repository for your entity, and embed the Repository struct into it.
+// Then, you can call the various utility functions provided by this package to perform operations such as Get, GetById, Search, and SearchAll.
+//
+// Example:
+//
+//	type UserRepository struct {
+//		gormet.Repository[User]
+//	}
+//
+//	func NewUserRepository(db *gorm.DB) (*UserRepository, error) {
+//		repo, err := gormet.New[User](db)
+//		if err != nil {
+//			return nil, err
+//		}
+//
+//		return &UserRepository{
+//			Repository: repo,
+//		}, nil
+//	}
+//
+//	// Now you can use the utility functions like Get, GetById, Search, and SearchAll on UserRepository.
+//
+//	import (
+//		"github.com/example/gormet"
+//		"gorm.io/gorm"
+//	)
+//
+//	type User struct {
+//		gorm.Model
+//		Username string
+//		Email    string
+//	}
+//
+//	userRepo, err := NewUserRepository(db)
+//	if err != nil {
+//		// Handle error
+//	}
+//
+//	// Retrieve a user by ID
+//	userByID, err := userRepo.GetById(1)
+//	if err != nil {
+//		// Handle error
+//	}
+//
+//	// Search for users based on a filter
+//	users, err := userRepo.Search(1, "username = ?", "john_doe")
+//	if err != nil {
+//		// Handle error
+//	}
 package gormet
 
 import (
